@@ -47,7 +47,7 @@ class TestExtractCell:
     def test_extract_blob_value(self):
         """Test extracting a blob value."""
         cell = {'blobValue': b'binary_data'}
-        assert extract_cell(cell) == b'binary_data'
+        assert extract_cell(cell) == '\\x62696e6172795f64617461'
 
     def test_extract_array_value(self):
         """Test extracting an array value."""
@@ -135,7 +135,7 @@ class TestParseExecuteResponse:
             'int_col': 100,
             'float_col': 99.99,
             'bool_col': True,
-            'blob_col': b'data',
+            'blob_col': '\\x64617461',
             'array_col': [1, 2, 3],
         }
 

@@ -281,6 +281,21 @@ def get_credentials_from_secret(
         raise ValueError(f'Failed to retrieve credentials from Secrets Manager: {str(e)}')
 
 
+def _json_safe_list(values: list) -> list:
+    """Keep JSON scalars and nested lists; stringify anything else (Decimal, date, ...)."""
+    result = []
+    for v in values:
+        if v is None or isinstance(v, (str, int, float, bool)):
+            result.append(v)
+        elif isinstance(v, list):
+            result.append(_json_safe_list(v))
+        elif isinstance(v, dict):
+            result.append(json.dumps(v))
+        else:
+            result.append(str(v))
+    return result
+
+
 class PsycopgPoolConnection(AbstractDBConnection):
     """Class that wraps DB connection using psycopg connection pool.
 
@@ -627,6 +642,12 @@ class PsycopgPoolConnection(AbstractDBConnection):
                                         record.append({'doubleValue': value})
                                     elif isinstance(value, bytes):
                                         record.append({'blobValue': value})
+                                    elif isinstance(value, dict):
+                                        # json/jsonb: same JSON text the Data API returns
+                                        record.append({'stringValue': json.dumps(value)})
+                                    elif isinstance(value, list):
+                                        # arrays (and jsonb arrays) become JSON lists
+                                        record.append({'arrayValue': _json_safe_list(value)})
                                     else:
                                         # Convert other types to string
                                         record.append({'stringValue': str(value)})

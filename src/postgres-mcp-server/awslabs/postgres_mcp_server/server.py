@@ -172,8 +172,25 @@ class DummyCtx(Context):
         pass
 
 
+def _extract_array(array: Any):
+    """Convert a Data API arrayValue into a plain (possibly nested) list."""
+    if not isinstance(array, dict):
+        return array
+    for key in ('stringValues', 'longValues', 'doubleValues', 'booleanValues'):
+        if key in array:
+            return list(array[key])
+    if 'arrayValues' in array:
+        return [_extract_array(item) for item in array['arrayValues']]
+    return []
+
+
 def extract_cell(cell: dict):
-    """Extracts the scalar or array value from a single cell."""
+    """Extracts the scalar or array value from a single cell.
+
+    blobValue (bytea) is returned as a hex string in PostgreSQL's default
+    bytea_output format (backslash, 'x', then hex digits), so the result is JSON-safe.
+    arrayValue is returned as a plain list.
+    """
     if cell.get('isNull'):
         return None
     for key in (
@@ -185,7 +202,12 @@ def extract_cell(cell: dict):
         'arrayValue',
     ):
         if key in cell:
-            return cell[key]
+            value = cell[key]
+            if key == 'blobValue' and isinstance(value, (bytes, bytearray, memoryview)):
+                return '\\x' + bytes(value).hex()
+            if key == 'arrayValue':
+                return _extract_array(value)
+            return value
     return None
 
 
